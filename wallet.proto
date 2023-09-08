@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package wallet;
+
+service WalletService {
+    rpc CreateWallet (WalletRequest) returns (Response);
+    rpc GetWalletBalance (WalletRequest) returns (Response);
+    rpc CreateTransaction (TransactionRequest) returns (Response);
+    rpc GetWalletTransactionHistory (WalletRequest) returns (Response);
+}
+
+message WalletRequest {
+    string user_id = 1;
+    string email = 2;
+    double balance = 3;
+    string currency = 4;
+}
+
+message TransactionRequest {
+    string user_id = 1;
+    string email = 2;
+    double amount = 3;
+    string description = 4;
+    TransactionType type = 5;
+}
+
+message Response {
+    bool ok = 1;
+    double data = 2;
+    string message = 3;
+}
+
+enum TransactionType {
+    DEBIT = 0;
+    // Add other transaction types if needed.
+}

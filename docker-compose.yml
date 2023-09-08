@@ -1,0 +1,36 @@
+version: '3'
+services:
+  rabbitmq:
+    image: "rabbitmq:management"
+    container_name: rabbitmq
+    environment:
+      # RABBITMQ_ERLANG_COOKIE: "secret_cookie" # Change this to a strong and unique value
+      RABBITMQ_DEFAULT_USER: "wallet"      # Set your RabbitMQ username
+      RABBITMQ_DEFAULT_PASS: "wallet"  # Set your RabbitMQ password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - wallet-services
+    volumes:
+      - ${PWD}/STORAGE/rb:/var/lib/rabbitmq
+
+  postgres:
+    image: "postgres:14.5"
+    container_name: postgres
+    environment:
+      POSTGRES_DB: wallet
+      POSTGRES_USER: ujere
+      POSTGRES_PASSWORD: 123456 # Change this to a strong password
+    ports:
+      - "5432:5432"
+    networks:
+      - wallet-services
+    volumes:
+      - ${PWD}/STORAGE/pg:/var/lib/postgresql/data
+
+networks:
+  wallet-services:
+    driver: bridge
+
+

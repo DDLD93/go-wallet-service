@@ -13,8 +13,9 @@ const (
 // Transaction represents a financial transaction.
 type Transaction struct {
 	ID          int             `json:"id"`
-	WalletID    int             `json:"wallet_id"`
-	UserID      int             `json:"user_id"`
+	WalletID    string          `json:"wallet_id"`
+	UserID      string          `json:"user_id"`
+	Email       string          `json:"email"`
 	Amount      float64         `json:"amount"`
 	Description string          `json:"description"`
 	Timestamp   time.Time       `json:"timestamp"`

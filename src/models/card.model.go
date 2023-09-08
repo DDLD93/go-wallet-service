@@ -4,7 +4,8 @@ import "time"
 
 type Card struct {
 	ID                int       `json:"id"`
-	UserID            int       `json:"user_id"`
+	UserID            string    `json:"user_id"`
+	Email             string    `json:"email"`
 	AuthorizationCode string    `json:"authorization_code"`
 	BIN               string    `json:"bin"`
 	Last4             string    `json:"last4"`

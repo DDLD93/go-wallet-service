@@ -1,159 +1,176 @@
 package controllers
 
 import (
-	"database/sql"
-	"fmt"
+    "database/sql"
 
-	"github.com/DDLD93/go-wallet-service/src/connections"
-	"github.com/DDLD93/go-wallet-service/src/models"
-	_ "github.com/lib/pq"
+    "github.com/DDLD93/go-wallet-service/src/connections"
+    "github.com/DDLD93/go-wallet-service/src/models"
+    _ "github.com/lib/pq"
 )
+
 type DBConnector struct {
-	*connections.DBConnector
+    *connections.DBConnector
+}
+
+type Response struct {
+    Ok      bool
+    Data    interface{}
+    Message string
 }
 
 // CreateWallet creates a new wallet in the database.
-func (connector *DBConnector) CreateWallet(wallet *models.Wallet) error {
-	// Start a new database transaction.
-	tx, err := connector.DB.Begin()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			_ = tx.Rollback()
-			panic(p)
-		}
-	}()
+func (connector *DBConnector) CreateWallet(wallet *models.Wallet) Response {
+    response := Response{}
 
-	// Insert the wallet record within the transaction.
-	_, err = tx.Exec("INSERT INTO wallets (user_id, balance, currency) VALUES ($1, $2, $3)",
-		wallet.UserID, wallet.Balance, wallet.Currency)
-	if err != nil {
-		_ = tx.Rollback()
-		return err
-	}
+    // Start a new database transaction.
+    tx, err := connector.DB.Begin()
+    if err != nil {
+        response.Message = err.Error()
+        return response
+    }
+    defer func() {
+        if p := recover(); p != nil {
+            _ = tx.Rollback()
+            panic(p)
+        }
+    }()
 
-	// Commit the transaction to make it atomic.
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
+    // Insert the wallet record within the transaction.
+    _, err = tx.Exec("INSERT INTO wallets (user_id,email, balance, currency) VALUES ($1,$2, $3, $4)",
+        wallet.UserID, wallet.Email, wallet.Balance, wallet.Currency)
+    if err != nil {
+        _ = tx.Rollback()
+        response.Message = err.Error()
+        return response
+    }
 
-	return nil
+    // Commit the transaction to make it atomic.
+    err = tx.Commit()
+    if err != nil {
+        response.Message = err.Error()
+        return response
+    }
+
+    response.Ok = true
+    return response
 }
 
 // GetWalletBalance retrieves the current balance of a wallet from the database.
-func (connector *DBConnector) GetWalletBalance(walletID int) (float64, error) {
-	var balance float64
+func (connector *DBConnector) GetWalletBalance(UserID string) Response {
+    response := Response{}
 
-	// Execute a SQL query to retrieve the balance of the specified wallet.
-	err := connector.DB.QueryRow("SELECT balance FROM wallets WHERE id = $1", walletID).Scan(&balance)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return 0, fmt.Errorf("wallet not found") // Return a specific error message for no rows found.
-		}
-		return 0, err
-	}
+    var balance float64
 
-	return balance, nil
+    // Execute a SQL query to retrieve the balance of the specified wallet.
+    err := connector.DB.QueryRow("SELECT balance FROM wallets WHERE user_id = $1", UserID).Scan(&balance)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            response.Message = "Wallet not found"
+        } else {
+            response.Message = err.Error()
+        }
+        return response
+    }
+
+    response.Ok = true
+    response.Data = balance
+    return response
 }
-
 
 // CreateTransaction creates a debit transaction in the database and updates the wallet's balance.
-func (connector *DBConnector) CreateTransaction(wallet *models.Wallet, amount float64, description string, transactionType models.TransactionType) error {
-	if transactionType != models.Debit {
-		return fmt.Errorf("invalid transaction type")
-	}
+func (connector *DBConnector) CreateTransaction(userID string, email string, amount float64, description string, transactionType models.TransactionType) Response {
+    response := Response{}
 
-	// Retrieve the current balance of the wallet from the database.
-	currentBalance, err := connector.GetWalletBalance(wallet.ID)
-	if err != nil {
-		return err
-	}
+    if transactionType != models.Debit {
+        response.Message = "Invalid transaction type"
+        return response
+    }
 
-	// Check if the wallet balance is sufficient for the debit transaction.
-	if currentBalance < amount {
-		return fmt.Errorf("insufficient balance")
-	}
+    // Retrieve the current balance of the wallet from the database.
+    currentBalanceResponse := connector.GetWalletBalance(userID)
+    if !currentBalanceResponse.Ok {
+        response.Message = currentBalanceResponse.Message
+        return response
+    }
 
-	tx, err := connector.DB.Begin()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			_ = tx.Rollback()
-			panic(p)
-		}
-	}()
+    currentBalance := currentBalanceResponse.Data.(float64)
 
-	// Insert the transaction record within the transaction.
-	_, err = tx.Exec("INSERT INTO transactions (wallet_id, amount, description, type) VALUES ($1, $2, $3, $4)",
-		wallet.ID, amount, description, transactionType)
-	if err != nil {
-		_ = tx.Rollback()
-		return err
-	}
+    // Check if the wallet balance is sufficient for the debit transaction.
+    if currentBalance < amount {
+        response.Message = "Insufficient balance"
+        return response
+    }
 
-	// Update the wallet's balance after the debit transaction.
-	wallet.Balance -= amount
+    tx, err := connector.DB.Begin()
+    if err != nil {
+        response.Message = err.Error()
+        return response
+    }
+    defer func() {
+        if p := recover(); p != nil {
+            _ = tx.Rollback()
+            panic(p)
+        }
+    }()
 
-	// Update the wallet's balance in the database.
-	_, err = tx.Exec("UPDATE wallets SET balance = $1 WHERE id = $2", wallet.Balance, wallet.ID)
-	if err != nil {
-		_ = tx.Rollback()
-		return err
-	}
+    // Insert the transaction record within the transaction.
+    _, err = tx.Exec("INSERT INTO transactions (user_id,email ,amount, description, type) VALUES ($1, $2, $3, $4,$5)",
+        userID, email, amount, description, transactionType)
+    if err != nil {
+        _ = tx.Rollback()
+        response.Message = err.Error()
+        return response
+    }
 
-	return tx.Commit()
+    // Update the wallet's balance after the debit transaction.
+    newBalance := currentBalance - amount
+
+    // Update the wallet's balance in the database.
+    _, err = tx.Exec("UPDATE wallets SET balance = $1 WHERE user_id = $2", newBalance, userID)
+    if err != nil {
+        _ = tx.Rollback()
+        response.Message = err.Error()
+        return response
+    }
+
+    err = tx.Commit()
+    if err != nil {
+        response.Message = err.Error()
+        return response
+    }
+
+    response.Ok = true
+    return response
 }
 
-// GetTransactionHistory retrieves transaction history for a wallet.
-func (connector *DBConnector) GetWalletTransactionHistory(walletID int) ([]models.Transaction, error) {
-	rows, err := connector.DB.Query("SELECT id, wallet_id, amount, description, timestamp, type FROM transactions WHERE wallet_id = $1", walletID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+// GetWalletTransactionHistory retrieves transaction history for a wallet.
+func (connector *DBConnector) GetWalletTransactionHistory(userID string) Response {
+    response := Response{}
 
-	var transactions []models.Transaction
-	for rows.Next() {
-		var transaction models.Transaction
-		err := rows.Scan(&transaction.ID, &transaction.WalletID, &transaction.Amount, &transaction.Description, &transaction.Timestamp, &transaction.Type)
-		if err != nil {
-			return nil, err
-		}
-		transactions = append(transactions, transaction)
-	}
+    rows, err := connector.DB.Query("SELECT id, amount, description, timestamp, type FROM transactions WHERE user_id = $1", userID)
+    if err != nil {
+        response.Message = err.Error()
+        return response
+    }
+    defer rows.Close()
 
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
+    var transactions []models.Transaction
+    for rows.Next() {
+        var transaction models.Transaction
+        err := rows.Scan(&transaction.ID, &transaction.Amount, &transaction.Description, &transaction.Timestamp, &transaction.Type)
+        if err != nil {
+            response.Message = err.Error()
+            return response
+        }
+        transactions = append(transactions, transaction)
+    }
 
-	return transactions, nil
-}
+    if err := rows.Err(); err != nil {
+        response.Message = err.Error()
+        return response
+    }
 
-func (connector *DBConnector) GetUserTransactionHistory(UserID string) ([]models.Transaction, error) {
-	rows, err := connector.DB.Query("SELECT id, wallet_id, amount, description, timestamp, type FROM transactions WHERE user_id = $1", UserID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var transactions []models.Transaction
-	for rows.Next() {
-		var transaction models.Transaction
-		err := rows.Scan(&transaction.ID, &transaction.WalletID, &transaction.Amount, &transaction.Description, &transaction.Timestamp, &transaction.Type)
-		if err != nil {
-			return nil, err
-		}
-		transactions = append(transactions, transaction)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return transactions, nil
+    response.Ok = true
+    response.Data = transactions
+    return response
 }

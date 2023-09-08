@@ -30,15 +30,18 @@ func NewDBConnector(connectionString string) (*DBConnector, error) {
 
 
 
-// createTables creates necessary tables if they don't exist.
+
+
 func createTables(db *sql.DB) error {
 	// Create the wallets table if it doesn't exist.
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS wallets (
 			id SERIAL PRIMARY KEY,
-			user_id INT NOT NULL,
+			user_id VARCHAR(255) NOT NULL,
+			email VARCHAR(255) NOT NULL,
 			balance NUMERIC(10, 2) NOT NULL,
-			currency VARCHAR(3) NOT NULL
+			currency VARCHAR(3) NOT NULL,
+			timestamp TIMESTAMPTZ DEFAULT current_timestamp
 		);
 	`)
 	if err != nil {
@@ -50,7 +53,9 @@ func createTables(db *sql.DB) error {
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS transactions (
 			id SERIAL PRIMARY KEY,
-			wallet_id INT NOT NULL,
+			wallet_id SERIAL NOT NULL,
+			user_id VARCHAR(255) NOT NULL,
+			email VARCHAR(255) NOT NULL,
 			amount NUMERIC(10, 2) NOT NULL,
 			description VARCHAR(255),
 			timestamp TIMESTAMPTZ DEFAULT current_timestamp,
@@ -66,10 +71,22 @@ func createTables(db *sql.DB) error {
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS cards (
 			id SERIAL PRIMARY KEY,
-			user_id INT NOT NULL,
-			card_number VARCHAR(16) NOT NULL,
-			expiration_date DATE NOT NULL,
-			cvv VARCHAR(3) NOT NULL
+			user_id VARCHAR(255) NOT NULL,
+			email VARCHAR(255) NOT NULL,
+			authorization_code VARCHAR(255) NOT NULL,
+			bin VARCHAR(6) NOT NULL,
+			last4 VARCHAR(4) NOT NULL,
+			exp_month VARCHAR(2) NOT NULL,
+			exp_year VARCHAR(4) NOT NULL,
+			channel VARCHAR(255) NOT NULL,
+			card_type VARCHAR(255) NOT NULL,
+			bank VARCHAR(255) NOT NULL,
+			country_code VARCHAR(2) NOT NULL,
+			brand VARCHAR(255) NOT NULL,
+			reusable BOOLEAN NOT NULL,
+			signature VARCHAR(255) NOT NULL,
+			account_name VARCHAR(255) NOT NULL,
+			timestamp TIMESTAMPTZ DEFAULT current_timestamp
 		);
 	`)
 	if err != nil {
@@ -81,4 +98,5 @@ func createTables(db *sql.DB) error {
 
 	return nil
 }
+
 
