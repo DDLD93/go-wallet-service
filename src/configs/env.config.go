@@ -1,8 +1,11 @@
 package configs
 
 import (
-	"fmt"
-	"os"
+    "fmt"
+    "log"
+    "os"
+
+    "github.com/joho/godotenv"
 )
 
 // Config represents the configuration of your application.
@@ -11,10 +14,26 @@ type Config struct {
     // Add other configuration variables as needed
 }
 
-// LoadConfig loads the configuration from environment variables.
+// LoadConfig loads the configuration from environment variables or a .env file.
 func LoadConfig() *Config {
+    // Load environment variables from a .env file (if available)
+    if err := godotenv.Load(); err != nil {
+        log.Println("No .env file found, using environment variables directly.")
+    }
+
+    // Retrieve PostgreSQL connection parameters
+    pgHost := getEnv("DB_HOST")
+    pgPort := getEnv("DB_PORT")
+    pgUser := getEnv("DB_USER")
+    pgPassword := getEnv("DB_PASSWORD")
+    pgDBName := getEnv("DB_DBNAME")
+
+    // Construct the PostgreSQL connection string
+    pgConnectionString := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+        pgHost, pgPort, pgUser, pgPassword, pgDBName)
+
     config := &Config{
-        DBConnectionString: getEnv("DB_CONNECTION_STRING", "user=ujere password=123456 dbname=postgres sslmode=disable"),
+        DBConnectionString: pgConnectionString,
         // Add other environment variables and their default values here
     }
 
@@ -22,14 +41,10 @@ func LoadConfig() *Config {
 }
 
 // getEnv retrieves an environment variable or returns a default value if it's not set.
-func getEnv(key, defaultValue string) string {
-	
+func getEnv(key string) string {
     value, exists := os.LookupEnv(key)
-	fmt.Print("env >>>>>>")
-
-	fmt.Print(value)
     if !exists {
-        return defaultValue
+        log.Fatalf("ENV Variable %s not found.", key)
     }
     return value
 }

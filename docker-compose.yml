@@ -20,7 +20,7 @@ services:
     container_name: postgres
     environment:
       POSTGRES_DB: wallet
-      POSTGRES_USER: ujere
+      POSTGRES_USER: wallet
       POSTGRES_PASSWORD: 123456 # Change this to a strong password
     ports:
       - "5432:5432"
